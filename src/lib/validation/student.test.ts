@@ -1,17 +1,3 @@
-import { describe, expect, it } from "vitest";
-import { normalizeAdmissionNumber, studentInputSchema } from "./student";
-
-describe("studentInputSchema", () => {
-  it("accepts valid minimum student data", () => {
-    expect(studentInputSchema.safeParse({ admissionNumber: " A-001 ", firstName: "Asha", lastName: "Kumar" }).success).toBe(true);
-  });
-  it("rejects missing admission number", () => {
-    expect(studentInputSchema.safeParse({ admissionNumber: "", firstName: "Asha", lastName: "Kumar" }).success).toBe(false);
-  });
-  it("rejects malformed dates", () => {
-    expect(studentInputSchema.safeParse({ admissionNumber: "A-001", firstName: "Asha", lastName: "Kumar", dateOfBirth: "31-02-2015" }).success).toBe(false);
-  });
-  it("normalizes admission number for duplicate checks", () => {
-    expect(normalizeAdmissionNumber("  ab-01 ")).toBe("AB-01");
-  });
-});
+import {describe,expect,it} from "vitest";import{normalizeAdmissionNumber,studentInputSchema}from"./student";
+const valid={admissionNumber:" A-001 ",fullName:" Asha Kumar ",academicYearId:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",classId:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"};
+describe("studentInputSchema",()=>{it("accepts and trims required fields",()=>{const p=studentInputSchema.parse(valid);expect(p.admissionNumber).toBe("A-001");expect(p.fullName).toBe("Asha Kumar");});it("rejects missing admission number",()=>expect(studentInputSchema.safeParse({...valid,admissionNumber:" "}).success).toBe(false));it("rejects missing full name",()=>expect(studentInputSchema.safeParse({...valid,fullName:""}).success).toBe(false));it("rejects malformed dates",()=>expect(studentInputSchema.safeParse({...valid,dateOfBirth:"31-02-2015"}).success).toBe(false));it("rejects malformed academic IDs",()=>expect(studentInputSchema.safeParse({...valid,classId:"not-a-uuid"}).success).toBe(false));it("rejects malformed guardian phone",()=>expect(studentInputSchema.safeParse({...valid,guardianPhone:"call me"}).success).toBe(false));it("normalizes admission numbers",()=>expect(normalizeAdmissionNumber("  ab-01 ")).toBe("AB-01"));});
