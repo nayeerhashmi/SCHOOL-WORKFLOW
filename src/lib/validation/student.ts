@@ -1,0 +1,4 @@
+import { z } from "zod";
+export const studentInputSchema=z.object({admissionNumber:z.string().trim().min(1).max(40),fullName:z.string().trim().min(1).max(200),dateOfBirth:z.union([z.iso.date(),z.literal("")]).optional().transform(v=>v||undefined),gender:z.enum(["female","male","other","not_recorded"]).default("not_recorded"),academicYearId:z.uuid(),classId:z.uuid(),sectionId:z.union([z.uuid(),z.literal("")]).optional().transform(v=>v||undefined),guardianName:z.string().trim().max(160).optional().transform(v=>v||undefined),guardianPhone:z.string().trim().max(25).refine(v=>!v||/^[+0-9() .-]{7,25}$/.test(v),"Enter a valid phone number").optional().transform(v=>v||undefined),homeAddress:z.string().trim().max(1000).optional().transform(v=>v||undefined)});
+export type StudentInput=z.infer<typeof studentInputSchema>;
+export function normalizeAdmissionNumber(value:string):string{return value.trim().normalize("NFKC").toLocaleUpperCase("en-IN");}

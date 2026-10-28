@@ -1,0 +1,40 @@
+-- Student registration fields, normalized admission uniqueness, atomic creation, and private document storage.
+alter table public.students add column full_name text not null default '';
+alter table public.students add column guardian_name text;
+alter table public.students add column guardian_phone text;
+alter table public.students add column home_address text;
+update public.students set full_name=trim(concat_ws(' ',first_name,nullif(middle_name,''),last_name)) where full_name='';
+alter table public.students add constraint students_full_name_length check(length(trim(full_name)) between 1 and 200);
+alter table public.students add constraint students_guardian_name_length check(guardian_name is null or length(trim(guardian_name))<=160);
+alter table public.students add constraint students_guardian_phone_length check(guardian_phone is null or length(trim(guardian_phone)) between 7 and 25);
+alter table public.students add constraint students_home_address_length check(home_address is null or length(trim(home_address))<=1000);
+create unique index students_school_admission_normalized_uq on public.students(school_id,upper(btrim(admission_number)));
+create function public.register_student(p_school_id uuid,p_admission_number text,p_full_name text,p_date_of_birth date,p_gender text,p_academic_year_id uuid,p_class_id uuid,p_section_id uuid,p_guardian_name text,p_guardian_phone text,p_home_address text) returns uuid language plpgsql security definer set search_path='' as $$
+declare actor uuid:=auth.uid(); new_student uuid; first_part text; remaining text;
+begin
+ if actor is null then raise exception 'Authentication required' using errcode='42501'; end if;
+ if not public.has_school_role(p_school_id,array['owner','admin','registrar']::public.school_role[]) then raise exception 'Insufficient school permissions' using errcode='42501'; end if;
+ if p_admission_number is null or length(btrim(p_admission_number)) not between 1 and 40 then raise exception 'Invalid admission number' using errcode='22023'; end if;
+ if p_full_name is null or length(btrim(p_full_name)) not between 1 and 200 then raise exception 'Invalid full name' using errcode='22023'; end if;
+ if not exists(select 1 from public.academic_years y where y.school_id=p_school_id and y.id=p_academic_year_id) then raise exception 'Academic year does not belong to this school' using errcode='23503'; end if;
+ if not exists(select 1 from public.classes c where c.school_id=p_school_id and c.id=p_class_id) then raise exception 'Class does not belong to this school' using errcode='23503'; end if;
+ if p_section_id is not null and not exists(select 1 from public.sections s where s.school_id=p_school_id and s.class_id=p_class_id and s.id=p_section_id) then raise exception 'Section does not belong to this class' using errcode='23503'; end if;
+ first_part:=split_part(btrim(p_full_name),' ',1); remaining:=btrim(substr(btrim(p_full_name),length(first_part)+1));
+ insert into public.students(school_id,admission_number,first_name,middle_name,last_name,full_name,date_of_birth,gender,guardian_name,guardian_phone,home_address,created_by) values(p_school_id,upper(btrim(p_admission_number)),first_part,'',coalesce(nullif(remaining,''),first_part),btrim(p_full_name),p_date_of_birth,coalesce(p_gender,'not_recorded'),nullif(btrim(p_guardian_name),''),nullif(btrim(p_guardian_phone),''),nullif(btrim(p_home_address),''),actor) returning id into new_student;
+ insert into public.enrolments(school_id,student_id,academic_year_id,class_id,section_id) values(p_school_id,new_student,p_academic_year_id,p_class_id,p_section_id);
+ return new_student;
+end;
+$$;
+revoke all on function public.register_student(uuid,text,text,date,text,uuid,uuid,uuid,text,text,text) from public,anon;
+grant execute on function public.register_student(uuid,text,text,date,text,uuid,uuid,uuid,text,text,text) to authenticated;
+create table public.student_documents (id uuid primary key default gen_random_uuid(),school_id uuid not null,student_id uuid not null,storage_path text not null unique,original_name text not null check(length(trim(original_name)) between 1 and 255),content_type text not null check(content_type in ('application/pdf','image/jpeg','image/png','image/webp')),size_bytes bigint not null check(size_bytes between 1 and 10485760),uploaded_by uuid not null references auth.users(id),created_at timestamptz not null default now(),foreign key(school_id,student_id) references public.students(school_id,id) on delete cascade);
+alter table public.student_documents enable row level security;
+create policy "members read student documents" on public.student_documents for select to authenticated using(public.is_school_member(school_id));
+create policy "registrars add student documents" on public.student_documents for insert to authenticated with check(public.has_school_role(school_id,array['owner','admin','registrar']::public.school_role[]) and uploaded_by=(select auth.uid()));
+create policy "registrars remove student documents" on public.student_documents for delete to authenticated using(public.has_school_role(school_id,array['owner','admin','registrar']::public.school_role[]));
+revoke all on public.student_documents from anon;
+grant select,insert,delete on public.student_documents to authenticated;
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('student-documents','student-documents',false,10485760,array['application/pdf','image/jpeg','image/png','image/webp']) on conflict(id) do update set public=false,file_size_limit=10485760,allowed_mime_types=array['application/pdf','image/jpeg','image/png','image/webp'];
+create policy "school staff read private student documents" on storage.objects for select to authenticated using(bucket_id='student-documents' and (storage.foldername(name))[1] ~* '^[0-9a-f-]{36}$' and (storage.foldername(name))[2] ~* '^[0-9a-f-]{36}$' and exists(select 1 from public.students s where s.school_id=((storage.foldername(name))[1])::uuid and s.id=((storage.foldername(name))[2])::uuid) and public.is_school_member(((storage.foldername(name))[1])::uuid));
+create policy "registrars upload private student documents" on storage.objects for insert to authenticated with check(bucket_id='student-documents' and (storage.foldername(name))[1] ~* '^[0-9a-f-]{36}$' and (storage.foldername(name))[2] ~* '^[0-9a-f-]{36}$' and exists(select 1 from public.students s where s.school_id=((storage.foldername(name))[1])::uuid and s.id=((storage.foldername(name))[2])::uuid) and public.has_school_role(((storage.foldername(name))[1])::uuid,array['owner','admin','registrar']::public.school_role[]));
+create policy "registrars delete private student documents" on storage.objects for delete to authenticated using(bucket_id='student-documents' and (storage.foldername(name))[1] ~* '^[0-9a-f-]{36}$' and (storage.foldername(name))[2] ~* '^[0-9a-f-]{36}$' and exists(select 1 from public.students s where s.school_id=((storage.foldername(name))[1])::uuid and s.id=((storage.foldername(name))[2])::uuid) and public.has_school_role(((storage.foldername(name))[1])::uuid,array['owner','admin','registrar']::public.school_role[]));
