@@ -4,11 +4,12 @@ A school data-entry and migration platform designed to reduce manual errors and 
 
 ## Current stage
 
-The development branch contains the initial architecture, Supabase schema, security hardening migration, validation helpers, and starter offline/import types. It is not yet production-ready and has not been security-certified.
+The development branch contains the initial architecture, Supabase schema, security hardening, invite-only onboarding database workflow, validation helpers, and starter offline/import types. It is not yet production-ready and has not been security-certified.
 
 ## Start here
 
 - [Local setup](docs/LOCAL_SETUP.md)
+- [Invite-only onboarding](docs/INVITE_ONLY_ONBOARDING.md)
 - [System design](docs/SYSTEM_DESIGN.md)
 - [Security model](docs/SECURITY.md)
 - [Milestone 1](docs/MILESTONE_1.md)

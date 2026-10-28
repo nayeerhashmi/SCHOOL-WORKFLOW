@@ -15,4 +15,4 @@
 5. Run `npm run typecheck` and `npm test`.
 6. Run `npm run dev` to start the local Next.js server.
 
-Do not use real student records until RLS, provisioning, server-side writes, audit behaviour, and cross-tenant tests have been verified. The current stage does not yet include a complete login UI or school provisioning workflow.
+For the invite-only flow, read [Invite-only onboarding](INVITE_ONLY_ONBOARDING.md). A database owner must bootstrap the first platform administrator out-of-band. Do not use real student records until RLS, provisioning, server-side writes, audit behaviour, and cross-tenant tests have been verified. The current stage does not yet include complete login/signup pages or an invitation email sender.
