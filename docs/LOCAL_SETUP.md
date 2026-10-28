@@ -1,18 +1,13 @@
 # Local setup
 
-## Requirements
-
-- Node.js 20 or newer
-- npm
-- A separate development Supabase project (do not use production data)
-
-## Steps
+Requirements: Node.js 20 or newer, npm, and a separate development Supabase project.
 
 1. Clone the repository and check out `milestone-1-secure-foundation`.
 2. Run `npm install`.
-3. Copy `.env.example` to `.env.local` and fill in the development project's project URL and publishable/anon key.
-4. Apply migrations in order in the development project, or use the Supabase CLI after linking the correct project: `supabase db push`.
-5. Run `npm run typecheck` and `npm test`.
-6. Run `npm run dev` to start the local Next.js server.
+3. Copy `.env.example` to `.env.local` and enter the development Supabase project URL and publishable/anon key.
+4. Apply migrations 0001 through 0004 in order to the development project, or link the Supabase CLI to the correct project and run `supabase db push`.
+5. Configure email confirmation, allowed redirect URLs, and SMTP. See [Authentication](AUTHENTICATION.md) and [Invite-only onboarding](INVITE_ONLY_ONBOARDING.md).
+6. Run `npm run typecheck`, `npm test`, `npm run lint`, and `npm run build`.
+7. Run `npm run dev`.
 
-For the invite-only flow, read [Invite-only onboarding](INVITE_ONLY_ONBOARDING.md). A database owner must bootstrap the first platform administrator out-of-band. Do not use real student records until RLS, provisioning, server-side writes, audit behaviour, and cross-tenant tests have been verified. The current stage does not yet include complete login/signup pages or an invitation email sender.
+Do not use real student records until migrations, RLS, provisioning, server-side writes, audit behaviour, and cross-tenant tests have been verified.
